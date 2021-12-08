@@ -1,0 +1,32 @@
+.main-layout {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-layout-header {
+    width: 100%;
+    height: 45px;
+}
+
+.main-layout-body {
+    width: 100%;
+
+    height: calc(100% - 45px);
+
+    display: flex;
+}
+
+.main-layout-left-side,
+.main-layout-right-side {
+    width: 200px;
+    height: 100%;
+}
+
+.main-layout-content {
+    width: calc(100% - 200px * 2);
+    height: 100%;
+}
+
+
