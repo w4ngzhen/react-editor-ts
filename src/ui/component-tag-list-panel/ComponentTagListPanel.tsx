@@ -5,7 +5,7 @@ import {Input} from "antd";
 import {SearchOutlined} from "@ant-design/icons";
 import ComponentTag from "../../component-tag/ComponentTag";
 import ComponentTagListItem from "./ComponentTagListItem";
-import ComponentCategoryDict from "../../core/ComponentCategory";
+import ComponentCategory from "../../core/ComponentCategory";
 
 interface ComponentTagListPanelProps {
     componentTags: ComponentTag[],
@@ -33,7 +33,7 @@ export default class ComponentTagListPanel extends React.Component<ComponentTagL
             let title = (
                 <p style={{margin: '5px'}}
                    key={category}>
-                    {ComponentCategoryDict.translate(category) || '自定义'}
+                    {ComponentCategory.translate(category) || '自定义'}
                 </p>
             );
             htmlEleList.push(title);

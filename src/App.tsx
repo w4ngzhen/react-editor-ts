@@ -41,13 +41,14 @@ class App extends React.Component<any, AppState> {
         });
     }
 
-    onItemDragStart(e: any, componentTagKey: string) {
-        console.debug('开始拖拽，componentTag Key：' + componentTagKey);
-        DragDataManager.setData(componentTagKey);
+    onItemDragStart(e: any, componentTagType: string) {
+        let componentTag = this.state.componentTagList.find(tag => tag.type === componentTagType);
+        console.debug('开始拖拽，componentTag：', componentTag);
+        DragDataManager.setData(componentTag);
     }
 
-    onItemDragEnd(e: any, componentTagKey: string) {
-        console.debug('取消了拖拽，componentTag Key：' + componentTagKey);
+    onItemDragEnd(e: any, componentTagType: string) {
+        console.debug('取消了拖拽，componentTag type：' + componentTagType);
         DragDataManager.setData(undefined);
     }
 

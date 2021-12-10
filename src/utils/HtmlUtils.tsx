@@ -19,4 +19,13 @@ export default class HtmlUtils {
             y: clientY - top
         };
     };
+
+    static mouseOnHtmlElement = () => {
+        return false;
+    }
+
+    static getHtmlElementAttrData = (htmlEle: HTMLElement, attrName: string) => {
+        return htmlEle.getAttribute(attrName)
+    }
+
 }

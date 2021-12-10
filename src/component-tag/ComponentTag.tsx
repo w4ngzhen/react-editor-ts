@@ -3,7 +3,7 @@ interface ComponentTag {
     icon: string,
     label: string,
     category: string,
-    tag: string | '',
+    tag?: string,
 }
 
 export default ComponentTag;
