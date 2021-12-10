@@ -14,6 +14,11 @@ export default class ComponentDefineRenderer {
             return undefined;
         }
 
+        let currentKey = path;
+
+        let dataPath = path;
+        let dataVirtual = define.virtualElement ? 'true' : 'false';
+
         let commonStyle = {
             border: `1px ${define.virtualElement ? 'dashed' : 'solid'} #000`,
             borderRadius: '3px',
@@ -21,13 +26,12 @@ export default class ComponentDefineRenderer {
             height: define.height
         }
 
-        let currentKey = path;
-
         if (define.type === 'button') {
             return (
                 <button
                     key={currentKey}
-                    data-key={currentKey} // 需要在元素上也把key记录下来
+                    data-path={dataPath}
+                    data-virtual={dataVirtual}
                     style={commonStyle}>
                     这是一个button
                 </button>
@@ -56,7 +60,10 @@ export default class ComponentDefineRenderer {
             return (
                 <div
                     key={currentKey}
-                    data-key={currentKey}
+
+                    data-path={dataPath}
+                    data-virtual={dataVirtual}
+
                     style={divStyle}>
                     {childrenEle}
                 </div>

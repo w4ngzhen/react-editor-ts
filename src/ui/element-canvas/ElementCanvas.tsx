@@ -5,6 +5,7 @@ import ComponentDefineRenderer from "../../core/ComponentDefineRenderer";
 import extend from "extend";
 import _ from 'lodash';
 import DataUtils from "../../utils/DataUtils";
+import HtmlUtils from "../../utils/HtmlUtils";
 
 interface ElementCanvasProps {
 }
@@ -16,12 +17,6 @@ interface ElementCanvasState {
 export default class ElementCanvas
     extends React.Component<ElementCanvasProps, ElementCanvasState> {
 
-    /**
-     *
-     * @type {null}
-     */
-    _eleCanvasRef: React.RefObject<any>
-
     _renderer: ComponentDefineRenderer
 
     /**
@@ -31,7 +26,6 @@ export default class ElementCanvas
      */
     constructor(props: any, context: any) {
         super(props, context);
-        this._eleCanvasRef = React.createRef();
         this._renderer = new ComponentDefineRenderer();
         this.state = {
             componentDefineList: [{
@@ -63,17 +57,46 @@ export default class ElementCanvas
     }
 
     dragOver(e: DragEvent<HTMLDivElement>) {
-        // let {current: divDomEle} = this._eleCanvasRef;
-        // let {x, y} = HtmlUtils.getMousePositionInHtmlElement(e, divDomEle);
-        // e.preventDefault();
+
     }
 
     dragEnter(e: DragEvent<HTMLElement>) {
+
+        // 检测对应target和relatedTarget是否有一个是virtual的，如果是的话，就不需要处理
+        // todo 说明原因
+
+        let targetEle = e.target;
+        let relatedTarget = e.relatedTarget;
+        console.debug('进入元素：', targetEle);
+        console.debug('离开元素：', relatedTarget);
+
+        let targetDataVirtual =
+            HtmlUtils.getHtmlElementAttrData(targetEle, 'data-virtual');
+        let relateTargetDataVirtual =
+            HtmlUtils.getHtmlElementAttrData(relatedTarget, 'data-virtual');
+        if ([targetDataVirtual, relateTargetDataVirtual].includes('true')) {
+            return;
+        }
+
+        let targetDataPath =
+            HtmlUtils.getHtmlElementAttrData(targetEle, 'data-path');
+        if (_.isEmpty(targetDataPath)) {
+            console.warn('targetDataPath为空')
+            return;
+        }
+        // '/root/panel_0/button_0' => ['root', 'panel_0', 'button_0']
+        let pathList = targetDataPath.split('/').filter(s => s !== '');
+        if (pathList.length === 0) {
+            console.warn('targetDataPath为空')
+            return;
+        }
+        let lastPath = pathList[pathList.length - 1];
+
+        // 将拖拽的信息，转化为ComponentDefine
         let draggedTag = DragDataManager.getData();
         if (!draggedTag) {
             return;
         }
-
         // 将对应的componentTag转换为ComponentDefine
         let componentDefine = componentTagToComponentDefine(draggedTag);
         if (!componentDefine) {
@@ -81,45 +104,20 @@ export default class ElementCanvas
         }
         componentDefine.virtualElement = true; // DragEnter都是在拖动，处于临时状态
 
-        let target = e.target as HTMLElement;
-        if (!target) {
-            console.debug('非HTML元素，不处理');
-            return;
-        }
+        // 转换为ComponentDefine后，准备进行设置
+        this.setState(prevState => {
 
-        console.debug('进入元素：', target);
-        let dataKey = target.getAttribute('data-key');
-        if (!dataKey) {
-            console.debug('dataKey为空')
-            return;
-        }
-        // '/root/panel_0/button_0' => ['root', 'panel_0', 'button_0']
-        let pathList = dataKey.split('/').filter(s => s !== '');
-
-        if (pathList.length === 0) {
-            return;
-        }
-        let lastPath = pathList[pathList.length - 1];
-
-        console.debug('拖动元素进入：', lastPath);
-
-        if (lastPath === 'root') {
-            console.debug('拖动元素进入根页面');
-            // 加入到根页面中
-            this.setState((prevState) => {
-                // 深拷贝
-                let nextState = extend(true, {}, prevState);
-                nextState.componentDefineList.push(componentDefine);
-                return nextState;
-            })
-            return;
-        }
-
-        this.setState((prevState) => {
             // 深拷贝
             let nextState = extend(true, {}, prevState);
-            let tailPathList = [...pathList].slice(1); // 移除首位的root
-            console.log(tailPathList);
+
+            if (lastPath === 'root') {
+                console.debug('拖动元素进入根页面');
+                nextState.componentDefineList.push(componentDefine);
+                return nextState;
+            }
+
+            console.debug('进入非根页面');
+            let [, ...tailPathList] = pathList; // 取 除开第一个元素的 剩下尾部
             let targetComponentDef =
                 DataUtils.getChildComponentDefine(nextState.componentDefineList, tailPathList);
             if (targetComponentDef && targetComponentDef.type === 'panel') {
@@ -133,45 +131,56 @@ export default class ElementCanvas
 
     dragLeave(e: DragEvent<HTMLDivElement>) {
 
-        let target = e.target as HTMLElement;
-        if (!target) {
-            console.debug('非HTML元素，不处理');
+        // 检测对应target和relatedTarget是否有一个是virtual的，如果是的话，就不需要处理
+        // todo 说明原因
+
+        let targetEle = e.target;
+        let relatedTarget = e.relatedTarget;
+        console.debug('离开元素：', targetEle);
+        console.debug('进入元素：', relatedTarget);
+
+        let targetDataVirtual =
+            HtmlUtils.getHtmlElementAttrData(targetEle, 'data-virtual');
+        let relateTargetDataVirtual =
+            HtmlUtils.getHtmlElementAttrData(relatedTarget, 'data-virtual');
+        if ([targetDataVirtual, relateTargetDataVirtual].includes('true')) {
             return;
         }
-        console.debug('离开元素：', target);
-        let dataKey = target.getAttribute('data-key');
-        if (!dataKey) {
-            console.debug('dataKey为空')
+
+        let targetDataPath =
+            HtmlUtils.getHtmlElementAttrData(targetEle, 'data-path');
+        if (_.isEmpty(targetDataPath)) {
+            console.warn('targetDataPath为空')
             return;
         }
         // '/root/panel_0/button_0' => ['root', 'panel_0', 'button_0']
-        let pathList = dataKey.split('/').filter(s => s !== '');
-        if (pathList.length === 0) {
+        let targetPathList = targetDataPath.split('/').filter(s => s !== '');
+        if (targetPathList.length === 0) {
+            console.warn('targetDataPath为空')
             return;
         }
-        let lastPath = pathList[pathList.length - 1];
+        let targetPastPath = targetPathList[targetPathList.length - 1];
 
-        if (lastPath === 'root') {
-            console.debug('拖动元素离开根页面');
-            // 加入到根页面中
-            this.setState((prevState) => {
-                // 深拷贝
-                let nextState = extend(true, {}, prevState);
+        // 找到对应的元素以后，只需要设置对应的元素里面的virtual为false
+
+        this.setState(prevState => {
+
+            // 深拷贝
+            let nextState = extend(true, {}, prevState);
+
+            // 离开的元素是root根页面
+            if (targetPastPath === 'root') {
                 // 移除temp的元素
-                let tempIdx = nextState.componentDefineList.findIndex(def => def.virtualElement);
+                let tempIdx =
+                    nextState.componentDefineList.findIndex(def => def.virtualElement);
                 if (tempIdx >= 0) {
                     nextState.componentDefineList.splice(tempIdx, 1);
                 }
                 return nextState;
-            })
-            return;
-        }
+            }
 
-        this.setState((prevState) => {
-            // 深拷贝
-            let nextState = extend(true, {}, prevState);
-            let tailPathList = [...pathList].slice(1); // 移除首位的root
-            console.log(tailPathList);
+            // 离开的元素非根页面元素
+            let [, ...tailPathList] = targetPathList; // 取 除开第一个元素的 剩下尾部
             let targetComponentDef =
                 DataUtils.getChildComponentDefine(nextState.componentDefineList, tailPathList);
             if (targetComponentDef && targetComponentDef.children) {
@@ -186,30 +195,22 @@ export default class ElementCanvas
     }
 
     dragDrop(e: DragEvent<HTMLDivElement>) {
-        // this.setState((prevState, props) => {
-        //     let nextList = [...prevState.componentTagInfoList].map(item => ({...item}));
-        //     let exploringItem = nextList.find(item => item.exploring);
-        //     if (exploringItem) {
-        //         exploringItem.exploring = false;
-        //     }
-        //     return {
-        //         componentTagInfoList: nextList
-        //     };
-        // });
+
     }
 
     render() {
-        let rootPath = '/root';
+        let rootDataPath = '/root';
         return (
             <div style={{width: '100%', height: '100%'}}
-                 data-key={rootPath} // 根节点
-                 ref={this._eleCanvasRef}
+
+                 data-path={rootDataPath} // 根节点
+
                  onDragEnter={e => this.dragEnter(e)}
                  onDragOver={e => this.dragOver(e)}
                  onDragLeave={e => this.dragLeave(e)}
                  onDrop={e => this.dragDrop(e)}
             >
-                {this._renderer.renderDefineList(this.state.componentDefineList, rootPath)}
+                {this._renderer.renderDefineList(this.state.componentDefineList, rootDataPath)}
             </div>
         );
     }

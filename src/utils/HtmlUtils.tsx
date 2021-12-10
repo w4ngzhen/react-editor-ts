@@ -24,8 +24,13 @@ export default class HtmlUtils {
         return false;
     }
 
-    static getHtmlElementAttrData = (htmlEle: HTMLElement, attrName: string) => {
-        return htmlEle.getAttribute(attrName)
+    static getHtmlElementAttrData = (htmlEle: any, attrName: string): string => {
+        let ele = htmlEle as HTMLElement;
+        if (!ele) {
+            return '';
+        }
+        // 节点上是 data-key='true'，那么拿到的是 字符串 'true'
+        return ele.getAttribute(attrName) || '';
     }
 
 }
