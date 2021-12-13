@@ -11,7 +11,7 @@ interface ElementCanvasProps {
 }
 
 interface ElementCanvasState {
-    componentDefineList: ComponentDefine[]
+    rootComponentDefine: ComponentDefine
 }
 
 export default class ElementCanvas
@@ -28,31 +28,37 @@ export default class ElementCanvas
         super(props, context);
         this._renderer = new ComponentDefineRenderer();
         this.state = {
-            componentDefineList: [{
-                type: 'panel',
-                name: 'Panel',
+            rootComponentDefine: {
+                type: 'page',
+                name: 'Page',
                 width: '',
                 height: '',
                 children: [{
-                    type: 'button',
-                    name: 'Button',
-                    width: '100%',
-                    height: '100%',
-                }, {
                     type: 'panel',
-                    name: 'Button',
-                    width: '300px',
-                    height: '150px',
-                    children: [
-                        {
-                            type: 'button',
-                            name: 'Button',
-                            width: '100%',
-                            height: '100%',
-                        }
-                    ]
+                    name: 'Panel',
+                    width: '',
+                    height: '',
+                    children: [{
+                        type: 'button',
+                        name: 'Button',
+                        width: '100%',
+                        height: '100%',
+                    }, {
+                        type: 'panel',
+                        name: 'Button',
+                        width: '300px',
+                        height: '150px',
+                        children: [
+                            {
+                                type: 'button',
+                                name: 'Button',
+                                width: '100%',
+                                height: '100%',
+                            }
+                        ]
+                    }]
                 }]
-            }],
+            }
         };
     }
 
@@ -62,155 +68,133 @@ export default class ElementCanvas
 
     dragEnter(e: DragEvent<HTMLElement>) {
 
-        // 检测对应target和relatedTarget是否有一个是virtual的，如果是的话，就不需要处理
-        // todo 说明原因
-
         let targetEle = e.target;
-        let relatedTarget = e.relatedTarget;
-        console.debug('进入元素：', targetEle);
-        console.debug('离开元素：', relatedTarget);
-
+        console.info('=== 进入元素 ===', targetEle);
         let targetDataVirtual =
             HtmlUtils.getHtmlElementAttrData(targetEle, 'data-virtual');
-        let relateTargetDataVirtual =
-            HtmlUtils.getHtmlElementAttrData(relatedTarget, 'data-virtual');
-        if ([targetDataVirtual, relateTargetDataVirtual].includes('true')) {
+
+        if (targetDataVirtual.toLowerCase() === 'true') {
+            // 鼠标本身就进入了虚拟元素，那么不要进行任何的处理
             return;
         }
 
+        // 获取并解析target元素上的data-path，备用
         let targetDataPath =
             HtmlUtils.getHtmlElementAttrData(targetEle, 'data-path');
         if (_.isEmpty(targetDataPath)) {
+            // 进入的是
+            return;
+        }
+        // '/page/panel_0/button_0' => ['page', 'panel_0', 'button_0']
+        let pathNodesWithRoot = targetDataPath.split('/').filter(s => s !== '');
+        if (pathNodesWithRoot.length === 0) {
             console.warn('targetDataPath为空')
             return;
         }
-        // '/root/panel_0/button_0' => ['root', 'panel_0', 'button_0']
-        let pathList = targetDataPath.split('/').filter(s => s !== '');
-        if (pathList.length === 0) {
-            console.warn('targetDataPath为空')
-            return;
-        }
-        let lastPath = pathList[pathList.length - 1];
 
-        // 将拖拽的信息，转化为ComponentDefine
+        // 读取拖拽信息，转化为ComponentDefine
         let draggedTag = DragDataManager.getData();
         if (!draggedTag) {
             return;
         }
-        // 将对应的componentTag转换为ComponentDefine
         let componentDefine = componentTagToComponentDefine(draggedTag);
         if (!componentDefine) {
             return;
         }
-        componentDefine.virtualElement = true; // DragEnter都是在拖动，处于临时状态
+        // DragEnter都是在拖动，处于虚拟状态
+        componentDefine.virtualElement = true;
 
-        // 转换为ComponentDefine后，准备进行设置
+        // 转换为ComponentDefine后，
+        // 准备进行设置
         this.setState(prevState => {
 
             // 深拷贝
             let nextState = extend(true, {}, prevState);
 
-            if (lastPath === 'root') {
-                console.debug('拖动元素进入根页面');
-                nextState.componentDefineList.push(componentDefine);
+            let {rootComponentDefine} = nextState;
+
+            // 移除virtual元素
+            this.removeVirtualComponentDefine(rootComponentDefine);
+
+            // 准备设置虚拟元素
+            // 如果pathNodesWithRoot只有一个：根节点，那么直接添加给根节点的子节点
+            if (pathNodesWithRoot.length === 1) {
+                // 因为根节点一定是可容器的节点，所以无需考虑是否是容器
+                rootComponentDefine.children = rootComponentDefine.children || [];
+                rootComponentDefine.children.push(componentDefine);
                 return nextState;
             }
 
-            console.debug('进入非根页面');
-            let [, ...tailPathList] = pathList; // 取 除开第一个元素的 剩下尾部
-            let targetComponentDef =
-                DataUtils.getChildComponentDefine(nextState.componentDefineList, tailPathList);
-            if (targetComponentDef && targetComponentDef.type === 'panel') {
-                // 对应路径有元素，且是panel，才能具备容器放置新的元素
-                targetComponentDef.children = targetComponentDef.children || [];
-                targetComponentDef.children.push(componentDefine)
+            // 否则，说明将要设置的节点至少是根节点的子节点的子节点
+            // pathNodesWithRoot = ['page', 'panel_0', 'button_0']
+            // => childPathNodes = ['panel_0', 'button_0']
+            let [, ...childPathNodes] = pathNodesWithRoot;
+            // 因为函数 getDescendantComponentDefineListByPathNodes 入参pathNodes是指子节点的路径
+            // 设置新的虚拟元素
+            let descendantList =
+                DataUtils.getDescendantComponentDefineListByPathNodes(
+                    rootComponentDefine, childPathNodes, true);
+
+            console.log('descendantList', descendantList);
+
+            if (descendantList.length > 0) {
+                let parentComponentDefine = descendantList[descendantList.length - 1];
+                // 检查元素是否是容器元素，不是则不能放置
+                if (['page', 'panel'].includes(parentComponentDefine.type)) {
+                    parentComponentDefine.children = parentComponentDefine.children || [];
+                    parentComponentDefine.children.push(componentDefine);
+                }
             }
+
             return nextState;
         })
     }
 
     dragLeave(e: DragEvent<HTMLDivElement>) {
-
-        // 检测对应target和relatedTarget是否有一个是virtual的，如果是的话，就不需要处理
-        // todo 说明原因
-
-        let targetEle = e.target;
-        let relatedTarget = e.relatedTarget;
-        console.debug('离开元素：', targetEle);
-        console.debug('进入元素：', relatedTarget);
-
-        let targetDataVirtual =
-            HtmlUtils.getHtmlElementAttrData(targetEle, 'data-virtual');
-        let relateTargetDataVirtual =
-            HtmlUtils.getHtmlElementAttrData(relatedTarget, 'data-virtual');
-        if ([targetDataVirtual, relateTargetDataVirtual].includes('true')) {
-            return;
-        }
-
-        let targetDataPath =
-            HtmlUtils.getHtmlElementAttrData(targetEle, 'data-path');
-        if (_.isEmpty(targetDataPath)) {
-            console.warn('targetDataPath为空')
-            return;
-        }
-        // '/root/panel_0/button_0' => ['root', 'panel_0', 'button_0']
-        let targetPathList = targetDataPath.split('/').filter(s => s !== '');
-        if (targetPathList.length === 0) {
-            console.warn('targetDataPath为空')
-            return;
-        }
-        let targetPastPath = targetPathList[targetPathList.length - 1];
-
-        // 找到对应的元素以后，只需要设置对应的元素里面的virtual为false
-
-        this.setState(prevState => {
-
-            // 深拷贝
-            let nextState = extend(true, {}, prevState);
-
-            // 离开的元素是root根页面
-            if (targetPastPath === 'root') {
-                // 移除temp的元素
-                let tempIdx =
-                    nextState.componentDefineList.findIndex(def => def.virtualElement);
-                if (tempIdx >= 0) {
-                    nextState.componentDefineList.splice(tempIdx, 1);
-                }
-                return nextState;
-            }
-
-            // 离开的元素非根页面元素
-            let [, ...tailPathList] = targetPathList; // 取 除开第一个元素的 剩下尾部
-            let targetComponentDef =
-                DataUtils.getChildComponentDefine(nextState.componentDefineList, tailPathList);
-            if (targetComponentDef && targetComponentDef.children) {
-                // 对应路径有元素，且是panel，才能具备容器放置新的元素
-                let tempIdx = targetComponentDef.children.findIndex(def => def.virtualElement);
-                if (tempIdx >= 0) {
-                    targetComponentDef.children.splice(tempIdx, 1);
-                }
-            }
-            return nextState;
-        })
     }
 
     dragDrop(e: DragEvent<HTMLDivElement>) {
+    }
 
+    removeVirtualComponentDefine(rootComponentDefine: ComponentDefine) {
+
+        console.info('=== ComponentDefine树中的virtual元素 ===')
+
+        // 否则总是先移除ComponentDefine中的虚拟元素节点
+        let {pathComponentDefines} =
+            DataUtils.getTargetDescendantComponentDefinePathNodes(rootComponentDefine, def => !!def.virtualElement)
+
+        if (pathComponentDefines.length === 0) {
+            // 没有对用的虚拟元素
+            return;
+        }
+
+        let parentComponentDef;
+        if (pathComponentDefines.length === 1) {
+            // 子路径Path里面只有一个元素，说明 page root ComponentDefine的子元素
+            // 从root中的子元素进行移除
+            parentComponentDef = rootComponentDefine;
+        } else {
+            // 否则，说明至少是root的子元素的子元素，倒数第二个则是virtual的父级
+            parentComponentDef = pathComponentDefines[pathComponentDefines.length - 2];
+        }
+        // 移除
+        parentComponentDef.children = rootComponentDefine.children || [];
+        let idx = parentComponentDef.children.findIndex(def => !!def.virtualElement);
+        parentComponentDef.children.splice(idx, 1);
+        console.debug('完成移除操作');
     }
 
     render() {
-        let rootDataPath = '/root';
         return (
             <div style={{width: '100%', height: '100%'}}
-
-                 data-path={rootDataPath} // 根节点
-
                  onDragEnter={e => this.dragEnter(e)}
                  onDragOver={e => this.dragOver(e)}
                  onDragLeave={e => this.dragLeave(e)}
-                 onDrop={e => this.dragDrop(e)}
-            >
-                {this._renderer.renderDefineList(this.state.componentDefineList, rootDataPath)}
+                 onDrop={e => this.dragDrop(e)}>
+
+                {this._renderer.renderDefine(this.state.rootComponentDefine)}
+
             </div>
         );
     }
