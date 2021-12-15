@@ -1,5 +1,6 @@
 import ComponentDefine from "./ComponentDefine";
 import {ReactElement} from "react";
+import {Button} from "antd";
 
 export default class ComponentDefineRenderer {
 
@@ -26,13 +27,14 @@ export default class ComponentDefineRenderer {
 
         if (define.type === 'button') {
             return (
-                <button
+                <Button
                     key={currentKey}
                     data-path={dataPath}
                     data-virtual={dataVirtual}
+                    type="primary"
                     style={commonStyle}>
                     这是一个button
-                </button>
+                </Button>
             )
         }
         if (define.type === 'panel') {
@@ -103,20 +105,4 @@ export default class ComponentDefineRenderer {
             )
         }
     }
-
-    // renderDefineList(defineList: ComponentDefine[], rootPath: string): ReactElement[] | undefined {
-    //     if (_.isEmpty(rootPath)) {
-    //         return undefined;
-    //     }
-    //     let list: ReactElement[] = [];
-    //     defineList.forEach((def, idx) => {
-    //         let path = rootPath + '/' + def.type + '_' + idx;
-    //         console.debug('path', path);
-    //         let reactEle = this.renderDefineInner(def, rootPath + '/' + def.type + '_' + idx);
-    //         if (reactEle) {
-    //             list.push(reactEle);
-    //         }
-    //     })
-    //     return list;
-    // }
 }

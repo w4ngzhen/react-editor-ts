@@ -117,10 +117,12 @@ export default class DataUtils {
                        pathNodes: string[],
                        pathComponentDefines: ComponentDefine[]) {
 
+
             if (predicate(targetChild)) {
                 // 符合目标，则添加到list中
                 pathNodes.push(targetChild.type + "_" + childIdx);
                 pathComponentDefines.push(targetChild);
+                console.log('符合目标：', JSON.stringify(targetChild));
                 return true;
             }
 
@@ -132,6 +134,7 @@ export default class DataUtils {
                 if (inner(child, idx, pathNodes, pathComponentDefines)) {
                     pathNodes.push(targetChild.type + "_" + childIdx);
                     pathComponentDefines.push(targetChild);
+                    console.log('符合目标，添加父级：', JSON.stringify(targetChild));
                     return true;
                 }
             }
@@ -144,6 +147,9 @@ export default class DataUtils {
             let pathNodes: string[] = [];
             let pathComponentDefines: ComponentDefine[] = [];
             if (inner(children[idx], idx, pathNodes, pathComponentDefines)) {
+                // 满足条件，path根据递归添加，需要reverse
+                pathNodes = pathNodes.reverse();
+                pathComponentDefines = pathComponentDefines.reverse();
                 return {pathNodes: pathNodes, pathComponentDefines: pathComponentDefines};
             }
         }
